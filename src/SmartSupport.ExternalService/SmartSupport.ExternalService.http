@@ -1,0 +1,6 @@
+@SmartSupport.ExternalService_HostAddress = http://localhost:5264
+
+GET {{SmartSupport.ExternalService_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
