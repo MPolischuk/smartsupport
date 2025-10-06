@@ -44,9 +44,10 @@ public sealed record AssistResponse
 
 public sealed record AssistRequestMetadata
 {
-    public string Prompt { get; init; } = string.Empty;
+    public required string Prompt { get; init; }
     public bool UseSql { get; init; }
     public bool UseApi { get; init; }
+    public string? OrderNumber { get; init; }
 }
 
 
