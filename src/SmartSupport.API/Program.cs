@@ -17,11 +17,26 @@ builder.Services.AddHttpClient("ExternalService", client =>
     }
 });
 
-// App services (stubs)
+// HttpClient for Gemini (Google AI Studio)
+builder.Services.AddHttpClient("Gemini", client =>
+{
+    var baseUrl = builder.Configuration["LLM:BaseUrl"] ?? "https://generativelanguage.googleapis.com";
+    client.BaseAddress = new Uri(baseUrl);
+});
+
+// App services
 builder.Services.AddScoped<SmartSupport.API.Services.IPdfTextExtractor, SmartSupport.API.Services.NaivePdfTextExtractor>();
 builder.Services.AddScoped<SmartSupport.API.Services.ISqlRagProvider, SmartSupport.API.Services.SqlRagProvider>();
 builder.Services.AddScoped<SmartSupport.API.Services.IApiRagProvider, SmartSupport.API.Services.ApiRagProvider>();
-builder.Services.AddScoped<SmartSupport.API.Services.IOpenAiClient, SmartSupport.API.Services.MockOpenAiClient>();
+var llmMock = builder.Configuration.GetValue<bool>("LLM:Mock");
+if (llmMock)
+{
+    builder.Services.AddScoped<SmartSupport.API.Services.ILlmClient, SmartSupport.API.Services.MockLlmClient>();
+}
+else
+{
+    builder.Services.AddScoped<SmartSupport.API.Services.ILlmClient, SmartSupport.API.Services.GeminiLlmClient>();
+}
 builder.Services.AddScoped<SmartSupport.API.Services.AssistOrchestrator>();
 
 // Add services to the container.

@@ -1,0 +1,177 @@
+@page "/assistant"
+@using System.Net.Http.Headers
+
+<h3>Asistente de Soporte</h3>
+
+<EditForm Model="this" OnValidSubmit="OnSubmitAsync">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="mb-3">
+        <label class="form-label">PDF</label>
+        <InputFile OnChange="OnFileChange" accept="application/pdf" />
+        @if (!string.IsNullOrEmpty(_fileName))
+        {
+            <div>Archivo: @_fileName (@_fileSize bytes)</div>
+        }
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Prompt</label>
+        <InputTextArea @bind-Value="_prompt" class="form-control" rows="4" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Order Number</label>
+        <InputText @bind-Value="_orderNumber" class="form-control" />
+    </div>
+
+    <div class="form-check">
+        <InputCheckbox @bind-Value="_useSql" class="form-check-input" id="useSql" />
+        <label class="form-check-label" for="useSql">Usar DB (RAG SQL)</label>
+    </div>
+    <div class="form-check">
+        <InputCheckbox @bind-Value="_useApi" class="form-check-input" id="useApi" />
+        <label class="form-check-label" for="useApi">Usar API externa (RAG API)</label>
+    </div>
+
+    <div class="mt-3">
+        <button class="btn btn-primary" disabled="@_busy">@(_busy ? "Consultando..." : "Consultar")</button>
+    </div>
+</EditForm>
+
+@if (_error is not null)
+{
+    <div class="alert alert-danger mt-3">@_error</div>
+}
+
+@if (_response is not null)
+{
+    <div class="card mt-3">
+        <div class="card-body">
+            <h5 class="card-title">Respuesta</h5>
+            <p>@_response.Answer</p>
+            <div>Confianza: @_response.Confidence</div>
+            <div>Intent: @_response.Intent</div>
+            @if (_response.Eta is not null)
+            {
+                <div>ETA: @_response.Eta</div>
+            }
+        </div>
+    </div>
+
+    <div class="accordion mt-3" id="sourcesAcc">
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="headPdf">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#pdfCites">Fuentes</button>
+            </h2>
+            <div id="pdfCites" class="accordion-collapse collapse" data-bs-parent="#sourcesAcc">
+                <div class="accordion-body">
+                    <ul>
+                        @foreach (var c in _response.Citations)
+                        {
+                            <li>[ @c.Source ] @c.Title @if (!string.IsNullOrEmpty(c.Table)){<text>(@c.Table)</text>} @if (c.Page is not null){<text>- pág @c.Page</text>}</li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Inject] HttpClient Http { get; set; } = default!;
+
+    string? _prompt = "¿Cuándo llega mi pedido AT-1003? ¿Qué hago si llega dañado?";
+    string? _orderNumber = "AT-1003";
+    bool _useSql = false;
+    bool _useApi = false;
+    IBrowserFile? _file;
+    string? _fileName;
+    long _fileSize;
+    bool _busy;
+    string? _error;
+    AssistResponseDto? _response;
+
+    void OnFileChange(InputFileChangeEventArgs e)
+    {
+        _file = e.File;
+        _fileName = _file?.Name;
+        _fileSize = _file?.Size ?? 0;
+    }
+
+    async Task OnSubmitAsync()
+    {
+        _error = null;
+        _response = null;
+
+        if (_file is null)
+        {
+            _error = "Adjunta un PDF";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_prompt))
+        {
+            _error = "Ingresa un prompt";
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            using var content = new MultipartFormDataContent();
+            content.Add(new StringContent(_prompt!), "prompt");
+            if (!string.IsNullOrWhiteSpace(_orderNumber)) content.Add(new StringContent(_orderNumber!), "orderNumber");
+            content.Add(new StringContent(_useSql.ToString()), "useSqlRag");
+            content.Add(new StringContent(_useApi.ToString()), "useApiRag");
+
+            using var fs = _file.OpenReadStream(10 * 1024 * 1024);
+            var streamContent = new StreamContent(fs);
+            streamContent.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
+            content.Add(streamContent, "file", _file.Name);
+
+            var resp = await Http.PostAsync("/assist/query", content);
+            if (!resp.IsSuccessStatusCode)
+            {
+                _error = $"Error: {(int)resp.StatusCode} {resp.ReasonPhrase}";
+                return;
+            }
+            var dto = await resp.Content.ReadFromJsonAsync<AssistResponseDto>();
+            _response = dto;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    public sealed class AssistResponseDto
+    {
+        public string Answer { get; set; } = string.Empty;
+        public string Intent { get; set; } = "Unknown";
+        public double Confidence { get; set; }
+        public string? OrderId { get; set; }
+        public string? Status { get; set; }
+        public DateTimeOffset? Eta { get; set; }
+        public List<string> Actions { get; set; } = new();
+        public List<CitationDto> Citations { get; set; } = new();
+        public bool RawContextUsed { get; set; }
+    }
+
+    public sealed class CitationDto
+    {
+        public string Source { get; set; } = string.Empty;
+        public string? Title { get; set; }
+        public string? Table { get; set; }
+        public string? Service { get; set; }
+        public string? Id { get; set; }
+        public int? Page { get; set; }
+    }
+}
+
+
+
