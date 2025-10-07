@@ -61,21 +61,60 @@
     </div>
 
     <div class="accordion mt-3" id="sourcesAcc">
-        <div class="accordion-item">
-            <h2 class="accordion-header" id="headPdf">
-                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#pdfCites">Fuentes</button>
-            </h2>
-            <div id="pdfCites" class="accordion-collapse collapse" data-bs-parent="#sourcesAcc">
-                <div class="accordion-body">
-                    <ul>
-                        @foreach (var c in _response.Citations)
-                        {
-                            <li>[ @c.Source ] @c.Title @if (!string.IsNullOrEmpty(c.Table)){<text>(@c.Table)</text>} @if (c.Page is not null){<text>- pág @c.Page</text>}</li>
-                        }
-                    </ul>
+        @if (_response.Citations.Any(c => c.Source == "pdf"))
+        {
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headPdf">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#pdfCites">Fuentes PDF</button>
+                </h2>
+                <div id="pdfCites" class="accordion-collapse collapse" data-bs-parent="#sourcesAcc">
+                    <div class="accordion-body">
+                        <ul>
+                            @foreach (var c in _response.Citations.Where(c => c.Source == "pdf"))
+                            {
+                                <li>@c.Title @if (c.Page is not null){<text>- pág @c.Page</text>}</li>
+                            }
+                        </ul>
+                    </div>
                 </div>
             </div>
-        </div>
+        }
+        @if (_response.Citations.Any(c => c.Source == "sql"))
+        {
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headSql">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sqlCites">Fuentes SQL</button>
+                </h2>
+                <div id="sqlCites" class="accordion-collapse collapse" data-bs-parent="#sourcesAcc">
+                    <div class="accordion-body">
+                        <ul>
+                            @foreach (var c in _response.Citations.Where(c => c.Source == "sql"))
+                            {
+                                <li>@c.Table - @c.Title (@c.Id)</li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        }
+        @if (_response.Citations.Any(c => c.Source == "api"))
+        {
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headApi">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#apiCites">Fuentes API</button>
+                </h2>
+                <div id="apiCites" class="accordion-collapse collapse" data-bs-parent="#sourcesAcc">
+                    <div class="accordion-body">
+                        <ul>
+                            @foreach (var c in _response.Citations.Where(c => c.Source == "api"))
+                            {
+                                <li>@c.Service - @c.Id</li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        }
     </div>
 }
 

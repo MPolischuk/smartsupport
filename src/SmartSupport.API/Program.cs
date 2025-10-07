@@ -57,8 +57,8 @@ app.UseHttpsRedirection();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<SmartSupport.ExternalData.ExternalDataDbContext>();
-    // Para la demo inicial, creamos la base y aplicamos seed sin migraciones
-    db.Database.EnsureCreated();
+    // Usar migraciones para evitar inconsistencias del modelo
+    db.Database.Migrate();
 }
 
 var summaries = new[]

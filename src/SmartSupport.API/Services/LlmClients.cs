@@ -51,7 +51,9 @@ public sealed class GeminiLlmClient : ILlmClient
             }
         };
 
-        var reqUri = $"/v1/models/{model}:generateContent";
+        var apiKey = _config["LLM:ApiKey"] ?? Environment.GetEnvironmentVariable("GEMINI_API_KEY") ?? string.Empty;
+        var keyQuery = string.IsNullOrWhiteSpace(apiKey) ? string.Empty : ("?key=" + Uri.EscapeDataString(apiKey));
+        var reqUri = $"/v1/models/{model}:generateContent{keyQuery}";
         using var req = new HttpRequestMessage(HttpMethod.Post, reqUri);
         var payload = new { contents, generationConfig = new { temperature = 0.2, responseMimeType = "application/json" } };
         req.Content = new StringContent(JsonSerializer.Serialize(payload));
