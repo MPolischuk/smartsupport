@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using SmartSupport.API.Models;
 
 namespace SmartSupport.API.Services;
@@ -7,36 +8,52 @@ namespace SmartSupport.API.Services;
 public interface ILlmClient
 {
     Task<AssistResponse> GetAnswerAsync(string prompt, string pdfText, IReadOnlyList<string> sqlFacts, IReadOnlyList<string> apiFacts, IReadOnlyList<AssistCitation> citations, CancellationToken ct = default);
+    Task<string> ListModelsAsync(CancellationToken ct = default);
 }
 
 public sealed class GeminiLlmClient : ILlmClient
 {
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IConfiguration _config;
-    public GeminiLlmClient(IHttpClientFactory httpClientFactory, IConfiguration config)
+    private readonly ILogger<GeminiLlmClient> _logger;
+    public GeminiLlmClient(IHttpClientFactory httpClientFactory, IConfiguration config, ILogger<GeminiLlmClient> logger)
     {
         _httpClientFactory = httpClientFactory;
         _config = config;
+        _logger = logger;
     }
 
     public async Task<AssistResponse> GetAnswerAsync(string prompt, string pdfText, IReadOnlyList<string> sqlFacts, IReadOnlyList<string> apiFacts, IReadOnlyList<AssistCitation> citations, CancellationToken ct = default)
     {
-        var model = _config["LLM:Model"] ?? "gemini-1.5-flash";
+        var model = _config["LLM:Model"] ?? "gemini-2.5-flash";
         var client = _httpClientFactory.CreateClient("Gemini");
+        var apiVersion = _config["LLM:ApiVersion"] ?? "v1"; // permitir alternar a v1beta si es necesario
 
         var system = "Eres un asistente de soporte de pedidos. Responde SOLO en JSON válido conforme AssistResponse (camelCase). Prioridad de evidencias: API > SQL > PDF.";
+
+        // Limitar tamaño del contexto para evitar 400 por payload demasiado grande
+        static string Truncate(string value, int max)
+            => string.IsNullOrEmpty(value) ? value : (value.Length <= max ? value : value.Substring(0, max));
+
+        const int maxPdfChars = 100_000; // ~100KB de texto
+        const int maxFacts = 50; // limitar cantidad de facts
+
+        var limitedPdf = Truncate(pdfText, maxPdfChars);
+        var limitedSqlFacts = sqlFacts.Take(maxFacts);
+        var limitedApiFacts = apiFacts.Take(maxFacts);
+
         var ctx = new StringBuilder();
         ctx.AppendLine("# PDF");
-        ctx.AppendLine(pdfText);
-        if (sqlFacts.Count > 0)
+        ctx.AppendLine(limitedPdf);
+        if (limitedSqlFacts.Any())
         {
             ctx.AppendLine("\n# SQL facts");
-            foreach (var f in sqlFacts) ctx.AppendLine("- " + f);
+            foreach (var f in limitedSqlFacts) ctx.AppendLine("- " + f);
         }
-        if (apiFacts.Count > 0)
+        if (limitedApiFacts.Any())
         {
             ctx.AppendLine("\n# API facts");
-            foreach (var f in apiFacts) ctx.AppendLine("- " + f);
+            foreach (var f in limitedApiFacts) ctx.AppendLine("- " + f);
         }
 
         var contents = new[]
@@ -53,17 +70,89 @@ public sealed class GeminiLlmClient : ILlmClient
 
         var apiKey = _config["LLM:ApiKey"] ?? Environment.GetEnvironmentVariable("GEMINI_API_KEY") ?? string.Empty;
         var keyQuery = string.IsNullOrWhiteSpace(apiKey) ? string.Empty : ("?key=" + Uri.EscapeDataString(apiKey));
-        var reqUri = $"/v1/models/{model}:generateContent{keyQuery}";
-        using var req = new HttpRequestMessage(HttpMethod.Post, reqUri);
-        var payload = new { contents, generationConfig = new { temperature = 0.2, responseMimeType = "application/json" } };
-        req.Content = new StringContent(JsonSerializer.Serialize(payload));
-        req.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+        // Simplificar generationConfig para mayor compatibilidad (algunas versiones usan response_mime_type)
+        var payload = new { contents, generationConfig = new { temperature = 0.2 } };
+        var json = JsonSerializer.Serialize(payload);
 
-        var httpResp = await client.SendAsync(req, ct);
-        httpResp.EnsureSuccessStatusCode();
-        var json = await httpResp.Content.ReadAsStringAsync(ct);
+        static string NormalizeModelPath(string modelName)
+            => modelName.StartsWith("models/", StringComparison.OrdinalIgnoreCase) ? modelName : $"models/{modelName}";
 
-        using var doc = JsonDocument.Parse(json);
+        async Task<(bool Ok, string Body, System.Net.HttpStatusCode StatusCode, string? ErrorMessage)> TryCallAsync(string version, string modelName)
+        {
+            var modelPath = NormalizeModelPath(modelName);
+            var reqUriLocal = $"/{version}/{modelPath}:generateContent{keyQuery}";
+            using var reqLocal = new HttpRequestMessage(HttpMethod.Post, reqUriLocal)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json")
+            };
+
+            _logger.LogInformation("[Gemini] POST {Uri} model={Model} payloadChars={Len}", reqUriLocal, modelName, json.Length);
+
+            var resp = await client.SendAsync(reqLocal, ct);
+            var body = await resp.Content.ReadAsStringAsync(ct);
+            if (resp.IsSuccessStatusCode)
+            {
+                return (true, body, resp.StatusCode, null);
+            }
+
+            string? errMsg = null;
+            try
+            {
+                using var errDoc = JsonDocument.Parse(body);
+                if (errDoc.RootElement.TryGetProperty("error", out var err))
+                {
+                    errMsg = err.TryGetProperty("message", out var m) ? m.GetString() : err.ToString();
+                }
+            }
+            catch
+            {
+                // body no es JSON
+            }
+
+            _logger.LogWarning("[Gemini] {Status} for {Uri}. msg={Msg}", resp.StatusCode, reqUriLocal, errMsg ?? body);
+            return (false, body, resp.StatusCode, errMsg);
+        }
+
+        var attempt = await TryCallAsync(apiVersion, model);
+        if (!attempt.Ok)
+        {
+            var shouldRetryBeta = apiVersion != "v1beta" && (
+                attempt.StatusCode == System.Net.HttpStatusCode.NotFound ||
+                (attempt.ErrorMessage?.Contains("not found for API version", StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (attempt.ErrorMessage?.Contains("not supported for generateContent", StringComparison.OrdinalIgnoreCase) ?? false)
+            );
+
+            if (shouldRetryBeta)
+            {
+                _logger.LogInformation("[Gemini] Reintentando con v1beta por {Reason}", attempt.ErrorMessage);
+                attempt = await TryCallAsync("v1beta", model);
+            }
+
+            if (!attempt.Ok)
+            {
+                var modelFallbacks = new[] { "gemini-2.5-flash", "gemini-flash-latest", "gemini-2.0-flash" };
+                foreach (var candidate in modelFallbacks)
+                {
+                    _logger.LogInformation("[Gemini] Probando modelo alternativo: {Model}", candidate);
+                    var altAttempt = await TryCallAsync("v1beta", candidate);
+                    if (altAttempt.Ok)
+                    {
+                        attempt = altAttempt;
+                        break;
+                    }
+                }
+
+                if (!attempt.Ok)
+                {
+                    var friendly = $"Gemini devolvió {(int)attempt.StatusCode} {attempt.StatusCode}. Detalle: {attempt.ErrorMessage ?? attempt.Body}";
+                    return new AssistResponse { Answer = friendly, Confidence = 0.2, Citations = citations };
+                }
+            }
+        }
+
+        var jsonResp = attempt.Body;
+
+        using var doc = JsonDocument.Parse(jsonResp);
         var text = doc.RootElement.GetProperty("candidates")[0].GetProperty("content").GetProperty("parts")[0].GetProperty("text").GetString();
         if (string.IsNullOrWhiteSpace(text))
             return new AssistResponse { Answer = "Respuesta vacía del LLM", Confidence = 0.5, Citations = citations };
@@ -78,6 +167,25 @@ public sealed class GeminiLlmClient : ILlmClient
         {
             return new AssistResponse { Answer = text, Confidence = 0.6, Citations = citations };
         }
+    }
+
+    public async Task<string> ListModelsAsync(CancellationToken ct = default)
+    {
+        var client = _httpClientFactory.CreateClient("Gemini");
+        var apiVersion = _config["LLM:ApiVersion"] ?? "v1";
+        var apiKey = _config["LLM:ApiKey"] ?? Environment.GetEnvironmentVariable("GEMINI_API_KEY") ?? string.Empty;
+        var keyQuery = string.IsNullOrWhiteSpace(apiKey) ? string.Empty : ("?key=" + Uri.EscapeDataString(apiKey));
+
+        var uri = $"/{apiVersion}/models{keyQuery}";
+        _logger.LogInformation("[Gemini] GET {Uri} ListModels", uri);
+        using var req = new HttpRequestMessage(HttpMethod.Get, uri);
+        var resp = await client.SendAsync(req, ct);
+        var body = await resp.Content.ReadAsStringAsync(ct);
+        if (!resp.IsSuccessStatusCode)
+        {
+            _logger.LogError("[Gemini] ListModels error {Status} body={Body}", resp.StatusCode, body);
+        }
+        return body;
     }
 }
 
@@ -98,6 +206,8 @@ public sealed class MockLlmClient : ILlmClient
             RawContextUsed = true
         });
     }
+
+    public Task<string> ListModelsAsync(CancellationToken ct = default) => Task.FromResult("{\"models\":[]}");
 }
 
 

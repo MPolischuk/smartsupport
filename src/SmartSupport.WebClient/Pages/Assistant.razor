@@ -1,5 +1,6 @@
 @page "/assistant"
 @using System.Net.Http.Headers
+@using System.Text.Json
 
 <h3>Asistente de Soporte</h3>
 
@@ -171,13 +172,22 @@
 
             // Llamar a la API (ajustar puerto según launch de API)
             var resp = await Http.PostAsync("https://localhost:7086/assist/query", content);
+            var body = await resp.Content.ReadAsStringAsync();
             if (!resp.IsSuccessStatusCode)
             {
-                _error = $"Error: {(int)resp.StatusCode} {resp.ReasonPhrase}";
+                _error = $"Error: {(int)resp.StatusCode} {resp.ReasonPhrase}. Body: {body}";
                 return;
             }
-            var dto = await resp.Content.ReadFromJsonAsync<AssistResponseDto>();
-            _response = dto;
+            try
+            {
+                var dto = JsonSerializer.Deserialize<AssistResponseDto>(body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                _response = dto;
+            }
+            catch (Exception)
+            {
+                _error = $"Respuesta no JSON del servidor: {body}";
+                return;
+            }
         }
         catch (Exception ex)
         {
@@ -189,13 +199,30 @@
         }
     }
 
+    public enum AssistIntent
+    {
+        Unknown,
+        OrderStatus,
+        ReturnPolicy,
+        DamagedItem
+    }
+
+    public enum AssistStatus
+    {
+        Unknown,
+        InTransit,
+        Delivered,
+        Delayed,
+        ReadyToShip
+    }
+
     public sealed class AssistResponseDto
     {
         public string Answer { get; set; } = string.Empty;
-        public string Intent { get; set; } = "Unknown";
+        public AssistIntent Intent { get; set; } = AssistIntent.Unknown;
         public double Confidence { get; set; }
         public string? OrderId { get; set; }
-        public string? Status { get; set; }
+        public AssistStatus? Status { get; set; }
         public DateTimeOffset? Eta { get; set; }
         public List<string> Actions { get; set; } = new();
         public List<CitationDto> Citations { get; set; } = new();

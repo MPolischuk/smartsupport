@@ -102,6 +102,14 @@ app.MapPost("/assist/query", async (
 })
 .WithName("AssistQuery");
 
+// Listar modelos disponibles en Gemini
+app.MapGet("/assist/models", async (SmartSupport.API.Services.ILlmClient llm, CancellationToken ct) =>
+{
+    var json = await llm.ListModelsAsync(ct);
+    return Results.Text(json, "application/json");
+})
+.WithName("AssistModels");
+
 app.Run();
 
 // demo default records removed
