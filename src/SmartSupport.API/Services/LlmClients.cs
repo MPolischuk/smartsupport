@@ -159,12 +159,54 @@ public sealed class GeminiLlmClient : ILlmClient
 
         try
         {
-            var resp = JsonSerializer.Deserialize(text, AssistJsonContext.Default.AssistResponse);
+            // El modelo puede envolver la respuesta en fences ```json ... ```; limpiarlos
+            static string StripCodeFences(string s)
+            {
+                var trimmed = s.Trim();
+                if (trimmed.StartsWith("```", StringComparison.Ordinal))
+                {
+                    // quitar primera línea ```(lang?) y última ```
+                    var firstNewLine = trimmed.IndexOf('\n');
+                    if (firstNewLine > 0)
+                    {
+                        trimmed = trimmed.Substring(firstNewLine + 1);
+                    }
+                    if (trimmed.EndsWith("```", StringComparison.Ordinal))
+                    {
+                        trimmed = trimmed.Substring(0, trimmed.Length - 3);
+                    }
+                    return trimmed.Trim();
+                }
+                return trimmed;
+            }
+
+            var cleaned = StripCodeFences(text);
+            var resp = JsonSerializer.Deserialize(cleaned, AssistJsonContext.Default.AssistResponse);
             if (resp is null) return new AssistResponse { Answer = text, Confidence = 0.6, Citations = citations };
             return resp with { Citations = citations };
         }
         catch
         {
+            // Fallback: si el texto es JSON con campo "answer", extraerlo
+            try
+            {
+                var cleaned = text.Trim();
+                if (cleaned.StartsWith("`"))
+                {
+                    // eliminar backticks sueltos
+                    cleaned = cleaned.Trim('`').Trim();
+                }
+                using var inner = JsonDocument.Parse(cleaned);
+                if (inner.RootElement.ValueKind == JsonValueKind.Object && inner.RootElement.TryGetProperty("answer", out var ansProp))
+                {
+                    var answerVal = ansProp.GetString() ?? text;
+                    return new AssistResponse { Answer = answerVal, Confidence = 0.6, Citations = citations };
+                }
+            }
+            catch
+            {
+                // ignorar y devolver texto bruto
+            }
             return new AssistResponse { Answer = text, Confidence = 0.6, Citations = citations };
         }
     }
