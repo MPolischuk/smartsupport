@@ -43,6 +43,15 @@ builder.Services.AddScoped<SmartSupport.API.Services.AssistOrchestrator>();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
+// CORS para WebClient
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowWebClient", policy =>
+        policy.WithOrigins("https://localhost:7248", "http://localhost:5052")
+              .AllowAnyHeader()
+              .AllowAnyMethod());
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -52,6 +61,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// Habilitar CORS
+app.UseCors("AllowWebClient");
 
 // Migrate DB on startup (demo)
 using (var scope = app.Services.CreateScope())

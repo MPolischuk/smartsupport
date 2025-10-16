@@ -169,7 +169,8 @@
             streamContent.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
             content.Add(streamContent, "file", _file.Name);
 
-            var resp = await Http.PostAsync("/assist/query", content);
+            // Llamar a la API (ajustar puerto según launch de API)
+            var resp = await Http.PostAsync("https://localhost:7086/assist/query", content);
             if (!resp.IsSuccessStatusCode)
             {
                 _error = $"Error: {(int)resp.StatusCode} {resp.ReasonPhrase}";
