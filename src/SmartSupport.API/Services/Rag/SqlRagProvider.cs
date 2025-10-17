@@ -4,11 +4,6 @@ using SmartSupport.ExternalData;
 
 namespace SmartSupport.API.Services;
 
-public interface ISqlRagProvider
-{
-    Task<(IReadOnlyList<string> facts, IReadOnlyList<AssistCitation> citations)> GetSqlFactsAsync(string? orderNumber, CancellationToken ct = default);
-}
-
 public sealed class SqlRagProvider : ISqlRagProvider
 {
     private readonly ExternalDataDbContext _db;

@@ -3,15 +3,9 @@ using iText.Kernel.Pdf;
 using iText.Kernel.Pdf.Canvas.Parser;
 using iText.Kernel.Pdf.Canvas.Parser.Listener;
 using System.Text;
-using SmartSupport.API.Models;
 using ITextPdfTextExtractor = iText.Kernel.Pdf.Canvas.Parser.PdfTextExtractor;
 
 namespace SmartSupport.API.Services;
-
-public interface IPdfTextExtractor
-{
-    Task<string> ExtractTextAsync(Stream pdfStream, string fileName, CancellationToken ct = default);
-}
 
 public sealed class NaivePdfTextExtractor : IPdfTextExtractor
 {

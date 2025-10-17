@@ -48,19 +48,6 @@
 
 @if (_response is not null)
 {
-    <div class="card mt-3">
-        <div class="card-body">
-            <h5 class="card-title">Respuesta</h5>
-            <p>@_response.Answer</p>
-            <div>Confianza: @_response.Confidence</div>
-            <div>Intent: @_response.Intent</div>
-            @if (_response.Eta is not null)
-            {
-                <div>ETA: @_response.Eta</div>
-            }
-        </div>
-    </div>
-
     <div class="accordion mt-3" id="sourcesAcc">
         @if (_response.Citations.Any(c => c.Source == "pdf"))
         {

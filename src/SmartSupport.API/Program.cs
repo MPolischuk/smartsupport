@@ -98,7 +98,7 @@ app.MapPost("/assist/query", async (
 
     await using var stream = file.OpenReadStream();
     var response = await orchestrator.HandleAsync(prompt, orderNumber, useSql, useApi, stream, file.FileName);
-    return Results.Json(response, SmartSupport.API.Models.AssistJsonContext.Default.AssistResponse);
+    return Results.Json(response);
 })
 .WithName("AssistQuery");
 

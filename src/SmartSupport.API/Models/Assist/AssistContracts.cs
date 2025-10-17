@@ -1,5 +1,3 @@
-using System.Text.Json.Serialization;
-
 namespace SmartSupport.API.Models;
 
 public enum AssistIntent
