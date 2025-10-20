@@ -1,4 +1,5 @@
 using SmartSupport.API.Models;
+using SmartSupport.API.Services.Llm.Interfaces;
 
 namespace SmartSupport.API.Services;
 

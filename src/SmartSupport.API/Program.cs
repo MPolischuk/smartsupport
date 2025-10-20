@@ -1,3 +1,6 @@
+using SmartSupport.API.Services.Llm.Interfaces;
+using SmartSupport.API.Services.Pdf.Interfaces;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // EF Core ExternalData
@@ -25,17 +28,17 @@ builder.Services.AddHttpClient("Gemini", client =>
 });
 
 // App services
-builder.Services.AddScoped<SmartSupport.API.Services.IPdfTextExtractor, SmartSupport.API.Services.NaivePdfTextExtractor>();
+builder.Services.AddScoped<IPdfTextExtractor, SmartSupport.API.Services.NaivePdfTextExtractor>();
 builder.Services.AddScoped<SmartSupport.API.Services.ISqlRagProvider, SmartSupport.API.Services.SqlRagProvider>();
 builder.Services.AddScoped<SmartSupport.API.Services.IApiRagProvider, SmartSupport.API.Services.ApiRagProvider>();
 var llmMock = builder.Configuration.GetValue<bool>("LLM:Mock");
 if (llmMock)
 {
-    builder.Services.AddScoped<SmartSupport.API.Services.ILlmClient, SmartSupport.API.Services.MockLlmClient>();
+    builder.Services.AddScoped<ILlmClient, SmartSupport.API.Services.MockLlmClient>();
 }
 else
 {
-    builder.Services.AddScoped<SmartSupport.API.Services.ILlmClient, SmartSupport.API.Services.GeminiLlmClient>();
+    builder.Services.AddScoped<ILlmClient, SmartSupport.API.Services.GeminiLlmClient>();
 }
 builder.Services.AddScoped<SmartSupport.API.Services.AssistOrchestrator>();
 
@@ -103,7 +106,7 @@ app.MapPost("/assist/query", async (
 .WithName("AssistQuery");
 
 // Listar modelos disponibles en Gemini
-app.MapGet("/assist/models", async (SmartSupport.API.Services.ILlmClient llm, CancellationToken ct) =>
+app.MapGet("/assist/models", async (ILlmClient llm, CancellationToken ct) =>
 {
     var json = await llm.ListModelsAsync(ct);
     return Results.Text(json, "application/json");

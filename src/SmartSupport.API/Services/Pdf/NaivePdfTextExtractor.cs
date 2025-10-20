@@ -2,6 +2,7 @@ using iText.IO.Source;
 using iText.Kernel.Pdf;
 using iText.Kernel.Pdf.Canvas.Parser;
 using iText.Kernel.Pdf.Canvas.Parser.Listener;
+using SmartSupport.API.Services.Pdf.Interfaces;
 using System.Text;
 using ITextPdfTextExtractor = iText.Kernel.Pdf.Canvas.Parser.PdfTextExtractor;
 

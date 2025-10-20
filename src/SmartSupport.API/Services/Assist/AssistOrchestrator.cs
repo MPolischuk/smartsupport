@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SmartSupport.API.Models;
+using SmartSupport.API.Services.Llm.Interfaces;
+using SmartSupport.API.Services.Pdf.Interfaces;
 using SmartSupport.ExternalData;
 
 namespace SmartSupport.API.Services;

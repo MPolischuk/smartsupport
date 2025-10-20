@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using SmartSupport.API.Models;
+using SmartSupport.API.Services.Llm.Interfaces;
 
 namespace SmartSupport.API.Services;
 

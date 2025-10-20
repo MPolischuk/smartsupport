@@ -1,6 +1,6 @@
 using SmartSupport.API.Models;
 
-namespace SmartSupport.API.Services;
+namespace SmartSupport.API.Services.Llm.Interfaces;
 
 public interface ILlmClient
 {

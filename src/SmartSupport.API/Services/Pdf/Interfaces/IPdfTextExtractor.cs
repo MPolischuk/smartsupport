@@ -1,4 +1,4 @@
-namespace SmartSupport.API.Services;
+namespace SmartSupport.API.Services.Pdf.Interfaces;
 
 public interface IPdfTextExtractor
 {
