@@ -22,17 +22,17 @@ Sistema de soporte inteligente que utiliza LLM (Large Language Models) y RAG (Re
 - SQL Server (LocalDB recomendado para desarrollo) o SQL Server Express
 - Visual Studio 2022 / Visual Studio Code / JetBrains Rider (opcional)
 
-## 🏗�?Arquitectura del Proyecto
+## 🏗️ Arquitectura del Proyecto
 
 El proyecto está organizado en 4 proyectos principales:
 
 ```
 SmartSupport/
 ├── src/
-�?  ├── SmartSupport.API/              # API principal (Backend)
-�?  ├── SmartSupport.ExternalService/  # Servicio externo de tracking
-�?  ├── SmartSupport.ExternalData/     # Acceso a datos (Entity Framework)
-�?  └── SmartSupport.WebClient/        # Cliente web (Blazor WebAssembly)
+│   ├── SmartSupport.API/              # API principal (Backend)
+│   ├── SmartSupport.ExternalService/  # Servicio externo de tracking
+│   ├── SmartSupport.ExternalData/     # Acceso a datos (Entity Framework)
+│   └── SmartSupport.WebClient/        # Cliente web (Blazor WebAssembly)
 └── resources/                          # Recursos (PDFs, SQL de prueba)
 ```
 
@@ -80,7 +80,7 @@ Cliente web desarrollado en Blazor WebAssembly.
 - Integración con la API principal
 - Visualización de respuestas y citas (sources)
 
-## 🛠�?Instalación y Configuración
+## 🛠️ Instalación y Configuración
 
 ### 1. Clonar el repositorio
 
@@ -283,10 +283,9 @@ GET https://localhost:7073/tracking/1Z999SMART?mode=delayed
 
 Este proyecto es una demostración técnica y no incluye licencia comercial.
 
-## 👨‍�?Autor
+## 👨‍💻 Autor
 
 Este proyecto fue desarrollado como **DEMO** para una charla presentada en la **.NET Conf 2025** realizada en **Corrientes, Argentina**. El proyecto demuestra el uso de tecnologías modernas de .NET como Blazor WebAssembly, ASP.NET Core, Entity Framework Core, integración con LLM y RAG (Retrieval Augmented Generation).
-
 ---
 
 Para más información o soporte, consulta la documentación en Swagger UI o revisa el código fuente.
