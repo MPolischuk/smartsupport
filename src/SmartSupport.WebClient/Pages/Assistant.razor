@@ -1,6 +1,7 @@
 @page "/assistant"
 @using System.Net.Http.Headers
 @using System.Text.Json
+@using SmartSupport.WebClient.Models
 
 <h3>Asistente de Soporte</h3>
 
@@ -202,46 +203,6 @@
         {
             _busy = false;
         }
-    }
-
-    public enum AssistIntent
-    {
-        Unknown,
-        OrderStatus,
-        ReturnPolicy,
-        DamagedItem
-    }
-
-    public enum AssistStatus
-    {
-        Unknown,
-        InTransit,
-        Delivered,
-        Delayed,
-        ReadyToShip
-    }
-
-    public sealed class AssistResponseDto
-    {
-        public string Answer { get; set; } = string.Empty;
-        public AssistIntent Intent { get; set; } = AssistIntent.Unknown;
-        public double Confidence { get; set; }
-        public string? OrderId { get; set; }
-        public AssistStatus? Status { get; set; }
-        public DateTimeOffset? Eta { get; set; }
-        public List<string> Actions { get; set; } = new();
-        public List<CitationDto> Citations { get; set; } = new();
-        public bool RawContextUsed { get; set; }
-    }
-
-    public sealed class CitationDto
-    {
-        public string Source { get; set; } = string.Empty;
-        public string? Title { get; set; }
-        public string? Table { get; set; }
-        public string? Service { get; set; }
-        public string? Id { get; set; }
-        public int? Page { get; set; }
     }
 }
 
