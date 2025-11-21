@@ -45,6 +45,7 @@ builder.Services.AddScoped<SmartSupport.API.Services.AssistOrchestrator>();
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+builder.Services.AddControllers();
 
 // CORS para WebClient
 builder.Services.AddCors(options =>
@@ -68,6 +69,9 @@ app.UseHttpsRedirection();
 // Habilitar CORS
 app.UseCors("AllowWebClient");
 
+// Mapear controladores
+app.MapControllers();
+
 // Migrate DB on startup (demo)
 using (var scope = app.Services.CreateScope())
 {
@@ -75,43 +79,6 @@ using (var scope = app.Services.CreateScope())
     // Usar migraciones para evitar inconsistencias del modelo
     db.Database.Migrate();
 }
-
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-// Assist endpoint (multipart)
-app.MapPost("/assist/query", async (
-    HttpRequest request,
-    SmartSupport.API.Services.AssistOrchestrator orchestrator) =>
-{
-    if (!request.HasFormContentType)
-        return Results.BadRequest("multipart/form-data requerido");
-
-    var form = await request.ReadFormAsync();
-    var prompt = form["prompt"].ToString();
-    var orderNumber = form["orderNumber"].ToString();
-    var useSql = bool.TryParse(form["useSqlRag"], out var us) && us;
-    var useApi = bool.TryParse(form["useApiRag"], out var ua) && ua;
-    var file = form.Files.GetFile("file");
-
-    if (string.IsNullOrWhiteSpace(prompt) || file is null)
-        return Results.BadRequest("Se requiere prompt y archivo PDF");
-
-    await using var stream = file.OpenReadStream();
-    var response = await orchestrator.HandleAsync(prompt, orderNumber, useSql, useApi, stream, file.FileName);
-    return Results.Json(response);
-})
-.WithName("AssistQuery");
-
-// Listar modelos disponibles en Gemini
-app.MapGet("/assist/models", async (ILlmClient llm, CancellationToken ct) =>
-{
-    var json = await llm.ListModelsAsync(ct);
-    return Results.Text(json, "application/json");
-})
-.WithName("AssistModels");
 
 app.Run();
 
