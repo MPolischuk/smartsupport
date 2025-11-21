@@ -1,63 +1,39 @@
+using Microsoft.OpenApi.Models;
+using SmartSupport.ExternalService.Models;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+
+// Configurar Swagger
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "SmartSupport External Service API",
+        Version = "v1",
+        Description = "API para servicios externos de SmartSupport (Tracking)"
+    });
+});
 
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "SmartSupport External Service API v1");
+        c.RoutePrefix = "swagger"; // Swagger UI en /swagger
+    });
 }
 
 app.UseHttpsRedirection();
 
-
-// Tracking endpoint simulado para la demo
-app.MapGet("/tracking/{trackingNumber}", (string trackingNumber, string? mode) =>
-{
-    var now = DateTime.UtcNow;
-
-    if (string.Equals(trackingNumber, "1Z999SMART", StringComparison.OrdinalIgnoreCase))
-    {
-        if (string.Equals(mode, "delayed", StringComparison.OrdinalIgnoreCase))
-        {
-            return Results.Ok(new TrackingResponse(
-                status: "delayed",
-                eta: now.AddDays(2),
-                lastScan: new LastScan(now.AddHours(-1), "Centro de distribución", "Demora por logística")
-            ));
-        }
-        else if (string.Equals(mode, "in_transit", StringComparison.OrdinalIgnoreCase))
-        {
-            return Results.Ok(new TrackingResponse(
-                status: "in_transit",
-                eta: now.AddDays(1),
-                lastScan: new LastScan(now.AddHours(-3), "Planta logística", "Clasificado")
-            ));
-        }
-        else
-        {
-            var eta = DateTime.UtcNow.Date.AddHours(19);
-            var lastScan = new LastScan(now.AddHours(-2), "Centro de distribución", "Salida a ruta de reparto");
-            return Results.Ok(new TrackingResponse("out_for_delivery", eta, lastScan));
-        }
-    }
-
-    // Fallback genérico
-    return Results.Ok(new TrackingResponse
-    (
-        status: "in_transit",
-        eta: now.AddDays(2),
-        lastScan: new LastScan(now.AddHours(-6), "Planta logística", "Clasificado")
-    ));
-})
-.WithName("GetTracking");
+// Mapear controladores
+app.MapControllers();
 
 app.Run();
-
-internal record TrackingResponse(string status, DateTime? eta, LastScan? lastScan);
-
-internal record LastScan(DateTime when, string location, string message);
