@@ -1,11 +1,16 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using SmartSupport.API.Models;
 using SmartSupport.API.Services;
 using SmartSupport.API.Services.Llm.Interfaces;
 
 namespace SmartSupport.API.Controllers
 {
+    /// <summary>
+    /// Controlador para los endpoints de asistencia inteligente
+    /// </summary>
     [Route("assist")]
     [ApiController]
+    [Produces("application/json")]
     public class AssistController : ControllerBase
     {
         private readonly AssistOrchestrator _orchestrator;
@@ -17,8 +22,23 @@ namespace SmartSupport.API.Controllers
             _llmClient = llmClient;
         }
 
-        // Assist endpoint (multipart)
+        /// <summary>
+        /// Procesa una consulta de asistencia con un archivo PDF
+        /// </summary>
+        /// <param name="ct">Token de cancelación</param>
+        /// <returns>Respuesta con la información de asistencia procesada</returns>
+        /// <remarks>
+        /// Requiere un formulario multipart/form-data con los siguientes campos:
+        /// - prompt (string): El texto de la consulta
+        /// - file (file): Archivo PDF a procesar
+        /// - orderNumber (string, opcional): Número de orden
+        /// - useSqlRag (bool, opcional): Usar RAG desde SQL
+        /// - useApiRag (bool, opcional): Usar RAG desde API externa
+        /// </remarks>
         [HttpPost("query")]
+        [Consumes("multipart/form-data")]
+        [ProducesResponseType(typeof(AssistResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> Query(CancellationToken ct = default)
         {
             if (!Request.HasFormContentType)
@@ -39,8 +59,13 @@ namespace SmartSupport.API.Controllers
             return Ok(response);
         }
 
-        // Listar modelos disponibles en Gemini
+        /// <summary>
+        /// Lista los modelos disponibles en el proveedor LLM (Gemini)
+        /// </summary>
+        /// <param name="ct">Token de cancelación</param>
+        /// <returns>JSON con la lista de modelos disponibles</returns>
         [HttpGet("models")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> Models(CancellationToken ct = default)
         {
             var json = await _llmClient.ListModelsAsync(ct);
