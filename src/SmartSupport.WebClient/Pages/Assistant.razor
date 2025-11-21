@@ -1,7 +1,6 @@
 @page "/assistant"
-@using System.Net.Http.Headers
-@using System.Text.Json
 @using SmartSupport.WebClient.Models
+@using SmartSupport.WebClient.Services
 
 <h3>Asistente de Soporte</h3>
 
@@ -16,6 +15,17 @@
         {
             <div>Archivo: @_fileName (@_fileSize bytes)</div>
         }
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Prompt Prefijado</label>
+        <InputSelect @bind-Value="_selectedPromptTemplate" @bind-Value:after="OnPromptTemplateSelected" class="form-select">
+            <option value="">-- Seleccionar prompt prefijado (opcional) --</option>
+            @foreach (var template in _promptTemplates)
+            {
+                <option value="@template.Value">@template.Label</option>
+            }
+        </InputSelect>
     </div>
 
     <div class="mb-3">
@@ -126,7 +136,7 @@
 }
 
 @code {
-    [Inject] HttpClient Http { get; set; } = default!;
+    [Inject] IAssistService AssistService { get; set; } = default!;
 
     string? _prompt = "¿Cuándo llega mi pedido AT-1003? ¿Qué hago si llega dañado?";
     string? _orderNumber = "AT-1003";
@@ -138,12 +148,35 @@
     bool _busy;
     string? _error;
     AssistResponseDto? _response;
+    string? _selectedPromptTemplate;
+
+    private IReadOnlyList<PromptTemplate> _promptTemplates => AssistService.GetPromptTemplates();
 
     void OnFileChange(InputFileChangeEventArgs e)
     {
         _file = e.File;
         _fileName = _file?.Name;
         _fileSize = _file?.Size ?? 0;
+    }
+
+    void OnPromptTemplateSelected()
+    {
+        if (string.IsNullOrWhiteSpace(_selectedPromptTemplate))
+        {
+            return;
+        }
+
+        var template = _promptTemplates.FirstOrDefault(t => t.Value == _selectedPromptTemplate);
+        if (template is not null && !string.IsNullOrWhiteSpace(template.Value))
+        {
+            _prompt = template.Value;
+            if (!string.IsNullOrWhiteSpace(template.OrderNumber))
+            {
+                _orderNumber = template.OrderNumber;
+            }
+            _useSql = template.UseSql;
+            _useApi = template.UseApi;
+        }
     }
 
     async Task OnSubmitAsync()
@@ -165,35 +198,12 @@
         _busy = true;
         try
         {
-            using var content = new MultipartFormDataContent();
-            content.Add(new StringContent(_prompt!), "prompt");
-            if (!string.IsNullOrWhiteSpace(_orderNumber)) content.Add(new StringContent(_orderNumber!), "orderNumber");
-            content.Add(new StringContent(_useSql.ToString()), "useSqlRag");
-            content.Add(new StringContent(_useApi.ToString()), "useApiRag");
-
-            using var fs = _file.OpenReadStream(10 * 1024 * 1024);
-            var streamContent = new StreamContent(fs);
-            streamContent.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
-            content.Add(streamContent, "file", _file.Name);
-
-            // Llamar a la API (ajustar puerto según launch de API)
-            var resp = await Http.PostAsync("https://localhost:7086/assist/query", content);
-            var body = await resp.Content.ReadAsStringAsync();
-            if (!resp.IsSuccessStatusCode)
-            {
-                _error = $"Error: {(int)resp.StatusCode} {resp.ReasonPhrase}. Body: {body}";
-                return;
-            }
-            try
-            {
-                var dto = JsonSerializer.Deserialize<AssistResponseDto>(body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                _response = dto;
-            }
-            catch (Exception)
-            {
-                _error = $"Respuesta no JSON del servidor: {body}";
-                return;
-            }
+            _response = await AssistService.QueryAsync(
+                _prompt!,
+                _file,
+                _orderNumber,
+                _useSql,
+                _useApi);
         }
         catch (Exception ex)
         {
