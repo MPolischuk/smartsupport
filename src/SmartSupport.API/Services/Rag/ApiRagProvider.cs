@@ -7,7 +7,8 @@ public sealed class ApiRagProvider : IApiRagProvider
     private readonly IHttpClientFactory _httpClientFactory;
     public ApiRagProvider(IHttpClientFactory httpClientFactory) => _httpClientFactory = httpClientFactory;
 
-    public async Task<(IReadOnlyList<string> facts, IReadOnlyList<AssistCitation> citations)> GetApiFactsAsync(string? trackingNumber, CancellationToken ct = default)
+    public async Task<(IReadOnlyList<string> facts, IReadOnlyList<AssistCitation> citations)> GetApiFactsAsync(
+        string? trackingNumber, CancellationToken ct = default)
     {
         var facts = new List<string>();
         var cites = new List<AssistCitation>();

@@ -9,7 +9,8 @@ public sealed class SqlRagProvider : ISqlRagProvider
     private readonly ExternalDataDbContext _db;
     public SqlRagProvider(ExternalDataDbContext db) => _db = db;
 
-    public async Task<(IReadOnlyList<string> facts, IReadOnlyList<AssistCitation> citations)> GetSqlFactsAsync(string? orderNumber, CancellationToken ct = default)
+    public async Task<(IReadOnlyList<string> facts, IReadOnlyList<AssistCitation> citations)> GetSqlFactsAsync(
+        string? orderNumber, CancellationToken ct = default)
     {
         var facts = new List<string>();
         var cites = new List<AssistCitation>();

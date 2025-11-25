@@ -18,7 +18,13 @@ public sealed class GeminiLlmClient : ILlmClient
         _logger = logger;
     }
 
-    public async Task<AssistResponse> GetAnswerAsync(string prompt, string pdfText, IReadOnlyList<string> sqlFacts, IReadOnlyList<string> apiFacts, IReadOnlyList<AssistCitation> citations, CancellationToken ct = default)
+    public async Task<AssistResponse> GetAnswerAsync(
+        string prompt, 
+        string pdfText, 
+        IReadOnlyList<string> sqlFacts, 
+        IReadOnlyList<string> apiFacts, 
+        IReadOnlyList<AssistCitation> citations, 
+        CancellationToken ct = default)
     {
         var model = _config["LLM:Model"] ?? "gemini-2.5-flash";
         var client = _httpClientFactory.CreateClient("Gemini");

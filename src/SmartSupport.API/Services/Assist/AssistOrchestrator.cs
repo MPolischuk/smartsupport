@@ -14,7 +14,12 @@ public sealed class AssistOrchestrator
     private readonly ILlmClient _llm;
     private readonly ExternalDataDbContext _db;
 
-    public AssistOrchestrator(IPdfTextExtractor pdf, ISqlRagProvider sql, IApiRagProvider api, ILlmClient llm, ExternalDataDbContext db)
+    public AssistOrchestrator(
+        IPdfTextExtractor pdf, 
+        ISqlRagProvider sql, 
+        IApiRagProvider api, 
+        ILlmClient llm, 
+        ExternalDataDbContext db)
     {
         _pdf = pdf;
         _sql = sql;
@@ -23,7 +28,14 @@ public sealed class AssistOrchestrator
         _db = db;
     }
 
-    public async Task<AssistResponse> HandleAsync(string prompt, string? orderNumber, bool useSql, bool useApi, Stream pdfStream, string fileName, CancellationToken ct = default)
+    public async Task<AssistResponse> HandleAsync(
+        string prompt, 
+        string? orderNumber, 
+        bool useSql, 
+        bool useApi, 
+        Stream pdfStream, 
+        string fileName, 
+        CancellationToken ct = default)
     {
         var pdfText = await _pdf.ExtractTextAsync(pdfStream, fileName, ct);
 
